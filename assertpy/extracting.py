@@ -28,13 +28,27 @@
 
 import sys
 import collections
+import keyword
+
 
 if sys.version_info[0] == 3:
     str_types = (str,)
     Iterable = collections.abc.Iterable
+    isidentifier = str.isidentifier
 else:
     str_types = (basestring,)
     Iterable = collections.Iterable
+
+    import re
+    import tokenize
+
+    def isidentifier(s):
+        return re.match(tokenize.Name + r'\Z', s)
+
+
+def is_valid_variable_name(name):
+    return isinstance(name, str_types) and isidentifier(name) and not keyword.iskeyword(name)
+
 
 __tracebackhide__ = True
 
@@ -177,10 +191,7 @@ class ExtractingMixin(object):
                     return x[name]
                 else:
                     raise ValueError('item keys %s did not contain key <%s>' % (list(x.keys()), name))
-            elif isinstance(x, Iterable):
-                self._check_iterable(x, name='item')
-                return x[name]
-            elif hasattr(x, name):
+            elif is_valid_variable_name(name) and hasattr(x, name):
                 attr = getattr(x, name)
                 if callable(attr):
                     try:
@@ -189,6 +200,8 @@ class ExtractingMixin(object):
                         raise ValueError('val method <%s()> exists, but is not zero-arg method' % name)
                 else:
                     return attr
+            elif hasattr(x, '__getitem__'):
+                return x[name]
             else:
                 raise ValueError('val does not have property or zero-arg method <%s>' % name)
 

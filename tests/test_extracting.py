@@ -27,6 +27,8 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import sys
+from collections import namedtuple
+
 from assertpy import assert_that, fail
 
 
@@ -340,8 +342,9 @@ def test_extracting_iterable_failure_set():
     try:
         assert_that([set([1])]).extracting(0).contains(1, 4, 7)
         fail('should have raised error')
-    except TypeError as ex:
-        assert_that(str(ex)).is_equal_to('item <set> does not have [] accessor')
+    except ValueError as ex:
+        pass
+        # assert_that(str(ex)).is_equal_to('item <set> does not have [] accessor')
 
 
 def test_extracting_iterable_failure_out_of_range():
@@ -358,3 +361,32 @@ def test_extracting_iterable_failure_index_is_not_int():
         fail('should have raised error')
     except TypeError as ex:
         assert_that(str(ex)).contains('list indices must be integers')
+
+
+def test_extracting_namedtuple():
+    Dog = namedtuple('Dog', ('name', 'age'))
+    dogs = [Dog('Max', 5), Dog('Coco', 12)]
+    assert_that(dogs).extracting('name').is_equal_to(['Max', 'Coco'])
+    assert_that(dogs).extracting('_fields').is_equal_to([('name', 'age'), ('name', 'age')])
+
+
+class OnlyGetItemCls:
+    __slots__ = ('value', )
+
+    def __init__(self, start):
+        self.value = start
+
+    def __getitem__(self, item):
+        str_indexes = ['first', 'second', 'third']
+        if item in str_indexes:
+            item = str_indexes.index(item)
+
+        return self.value + item
+
+
+def test_extracting_field_from_iterables():
+    items = [OnlyGetItemCls(5), OnlyGetItemCls(10)]
+    assert_that(items).extracting('value').is_equal_to([5, 10])
+    assert_that(items).extracting(3).is_equal_to([8, 13])
+    assert_that(items).extracting('second').is_equal_to([6, 11])
+    assert_that(items).extracting('__slots__').contains(('value', ))
